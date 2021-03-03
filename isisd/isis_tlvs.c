@@ -2652,40 +2652,42 @@ static int unpack_item_flooding_params(uint16_t mtid, uint8_t len,
 
 
 		uint8_t type = stream_getc(s);
-		uint8_t length = stream_getc(s);
+		uint8_t sub_tlv_length = stream_getc(s);
 		uint32_t value = 0;
+
+		len -= 2;
 
 		switch (type) {
 		case ISIS_SUBTLV_RCV_WIN:
-			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+			if (len < 4 || sub_tlv_length != 4) {
 				goto wrong_tlv_len;
 			}
 			value = stream_getl(s);
 			rv->lsp_receive_windows = value;
 			break;
 		case ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL:
-			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+			if (len < 4 || sub_tlv_length != 4) {
 				goto wrong_tlv_len;
 			}
 			value = stream_getl(s);
 			rv->minimum_interface_lsp_transmission_interval = value;
 			break;
 		case ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL:
-			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+			if (len < 4 || sub_tlv_length != 4) {
 				goto wrong_tlv_len;
 			}
 			value = stream_getl(s);
 			rv->minimum_lsp_transmission_interval = value;
 			break;
 		default:
-			if (STREAM_WRITEABLE(s) < length) {
+			if (len < sub_tlv_length) {
 				goto wrong_tlv_len;
 			}
-			stream_forward_getp(s, length);
+			stream_forward_getp(s, sub_tlv_length);
 			break;
 		}
 
-		len -= length;
+		len -= sub_tlv_length;
 	}
 
 	format_item_flooding_params(mtid, (struct isis_item *)rv, log,
