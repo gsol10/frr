@@ -2660,21 +2660,21 @@ static int unpack_item_flooding_params(uint16_t mtid, uint8_t len,
 			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
 				goto wrong_tlv_len;
 			}
-			value = stream_getw(s);
+			value = stream_getl(s);
 			rv->lsp_receive_windows = value;
 			break;
 		case ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL:
 			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
 				goto wrong_tlv_len;
 			}
-			value = stream_getw(s);
+			value = stream_getl(s);
 			rv->minimum_interface_lsp_transmission_interval = value;
 			break;
 		case ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL:
 			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
 				goto wrong_tlv_len;
 			}
-			value = stream_getw(s);
+			value = stream_getl(s);
 			rv->minimum_lsp_transmission_interval = value;
 			break;
 		default:
