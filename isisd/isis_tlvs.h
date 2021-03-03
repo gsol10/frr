@@ -279,6 +279,15 @@ struct isis_auth {
 	size_t offset; /* Only valid after packing */
 };
 
+struct isis_flooding_params;
+struct isis_flooding_params {
+	struct isis_flooding_params *next;
+
+	uint32_t lsp_receive_windows;
+	uint32_t minimum_interface_lsp_transmission_interval;
+	uint32_t minimum_lsp_transmission_interval;
+};
+
 struct isis_item_list;
 struct isis_item_list {
 	struct isis_item *head;
@@ -335,6 +344,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
+	struct isis_item_list flooding_params;
 };
 
 enum isis_tlv_context {
@@ -365,6 +375,7 @@ enum isis_tlv_type {
 	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
 
+	ISIS_TLV_FLOODING_PARAMETERS = 127, // Temporary codepoint
 	ISIS_TLV_OLDSTYLE_IP_REACH = 128,
 	ISIS_TLV_PROTOCOLS_SUPPORTED = 129,
 	ISIS_TLV_OLDSTYLE_IP_REACH_EXT = 130,
@@ -425,8 +436,15 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
+	/* draft flooding-parameters*/
+	ISIS_SUBTLV_RCV_WIN = 1,
+	ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL = 2,
+	ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL = 3,
+
 	ISIS_SUBTLV_MAX = 40
 };
+
+#define ISIS_FLOODING_PARAMS_SUBTLV_LEN 4
 
 /* subTLVs size for TE and SR */
 enum ext_subtlv_size {
@@ -640,4 +658,8 @@ isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
+
+void isis_tlvs_add_flooding_params(struct isis_tlvs *tlvs, uint32_t fp_rcv,
+				   uint32_t min_int_lsp_trans_int,
+				   uint32_t min_lsp_trans_int);
 #endif

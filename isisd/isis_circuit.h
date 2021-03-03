@@ -136,6 +136,9 @@ struct isis_circuit {
 	struct list *ipv6_link;     /* our link local IPv6 addresses */
 	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
 	uint16_t upadjcount[ISIS_LEVELS];
+	uint32_t fp_rcv;
+	uint32_t fp_min_int_lsp_trans_int;
+	uint32_t fp_min_lsp_trans_int;
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	uint8_t flags;
 	bool disable_threeway_adj;

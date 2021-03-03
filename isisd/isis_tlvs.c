@@ -2569,6 +2569,135 @@ out:
 	return 1;
 }
 
+/* Functions related to TLV 127 Flooding parameters */
+static struct isis_item *copy_item_flooding_params(struct isis_item *i)
+{
+	struct isis_flooding_params *fp = (struct isis_flooding_params *)i;
+	struct isis_flooding_params *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->lsp_receive_windows = fp->lsp_receive_windows;
+	rv->minimum_interface_lsp_transmission_interval =
+		fp->minimum_interface_lsp_transmission_interval;
+	rv->minimum_lsp_transmission_interval =
+		fp->minimum_lsp_transmission_interval;
+
+	return (struct isis_item *)rv;
+}
+
+static void format_item_flooding_params(uint16_t mtid, struct isis_item *i,
+					struct sbuf *buf, int indent)
+{
+	struct isis_flooding_params *fp = (struct isis_flooding_params *)i;
+
+	sbuf_push(buf, indent, "Flooding Params:\n");
+
+	sbuf_push(buf, indent, "  LSP Receive Windows: %u\n",
+		  fp->lsp_receive_windows);
+	sbuf_push(buf, indent,
+		  "  Minimum Interface LSP Transmission interval: %u\n",
+		fp->minimum_interface_lsp_transmission_interval);
+	sbuf_push(buf, indent, "  Mininum LSP Transmission interval: %u\n",
+		fp->minimum_lsp_transmission_interval);
+}
+
+static void free_item_flooding_params(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_TLV, i);
+}
+
+static int pack_item_flooding_params(struct isis_item *i, struct stream *s)
+{
+
+	struct isis_flooding_params *fp = (struct isis_flooding_params *)i;
+
+	if (STREAM_WRITEABLE(s) < 6)
+		return 1;
+	stream_putc(s, ISIS_SUBTLV_RCV_WIN);
+	stream_putc(s, 4);
+	stream_putw(s, fp->lsp_receive_windows);
+
+	if (STREAM_WRITEABLE(s) < 6)
+		return 1;
+	stream_putc(s, ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL);
+	stream_putc(s, 4);
+	stream_putw(s, fp->minimum_interface_lsp_transmission_interval);
+
+	if (STREAM_WRITEABLE(s) < 6)
+		return 1;
+	stream_putc(s, ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL);
+	stream_putc(s, 4);
+	stream_putw(s, fp->minimum_lsp_transmission_interval);
+
+	return 0;
+}
+
+static int unpack_item_flooding_params(uint16_t mtid, uint8_t len,
+				       struct stream *s, struct sbuf *log,
+				       void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpack Flooding Parameters TLV...\n");
+
+	struct isis_flooding_params *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	while (len != 0) {
+		if (len < 2) {
+			sbuf_push(
+				log, indent,
+				"Not enough data left for type and length, got %hhu)\n",
+				len);
+			goto wrong_tlv_len;
+		}
+
+
+		uint8_t type = stream_getc(s);
+		uint8_t length = stream_getc(s);
+		uint32_t value = 0;
+
+		switch (type) {
+		case ISIS_SUBTLV_RCV_WIN:
+			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+				goto wrong_tlv_len;
+			}
+			value = stream_getw(s);
+			rv->lsp_receive_windows = value;
+			break;
+		case ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL:
+			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+				goto wrong_tlv_len;
+			}
+			value = stream_getw(s);
+			rv->minimum_interface_lsp_transmission_interval = value;
+			break;
+		case ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL:
+			if (STREAM_WRITEABLE(s) < 4 || length != 4) {
+				goto wrong_tlv_len;
+			}
+			value = stream_getw(s);
+			rv->minimum_lsp_transmission_interval = value;
+			break;
+		default:
+			if (STREAM_WRITEABLE(s) < length) {
+				goto wrong_tlv_len;
+			}
+			stream_forward_getp(s, length);
+			break;
+		}
+
+		len -= length;
+	}
+
+	format_item_flooding_params(mtid, (struct isis_item *)rv, log,
+				    indent + 2);
+	append_item(&tlvs->flooding_params, (struct isis_item *)rv);
+	return 0;
+
+wrong_tlv_len:
+	XFREE(MTYPE_ISIS_TLV, rv);
+	return 1;
+}
+
 /* Functions related to TLV 242 Router Capability as per RFC7981 */
 static struct isis_router_cap *copy_tlv_router_cap(
 			       const struct isis_router_cap *router_cap)
@@ -3525,6 +3654,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	RB_INIT(isis_mt_item_list, &result->mt_ip_reach);
 	init_item_list(&result->ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ipv6_reach);
+	init_item_list(&result->flooding_params);
 
 	return result;
 }
@@ -3589,6 +3719,9 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_REACH, &tlvs->ipv6_reach,
 		   &rv->ipv6_reach);
+	
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+		   &tlvs->flooding_params, &rv->flooding_params);
 
 	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach, &rv->mt_ipv6_reach);
@@ -3667,6 +3800,9 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, indent);
 
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, indent);
+
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+			&tlvs->flooding_params, buf, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs)
@@ -3721,6 +3857,9 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
+
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+			&tlvs->flooding_params);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
@@ -3906,6 +4045,16 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	if (fragment_tlvs) {
 		fragment_tlvs->router_cap =
 			copy_tlv_router_cap(tlvs->router_cap);
+	}
+
+	rv = pack_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+			&tlvs->flooding_params, stream, NULL, NULL, NULL, NULL);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {
+		copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+			   &tlvs->flooding_params,
+			   &fragment_tlvs->flooding_params);
 	}
 
 	rv = pack_tlv_te_router_id(tlvs->te_router_id, stream);
@@ -4143,6 +4292,8 @@ ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 TLV_OPS(router_cap, "TLV 242 Router Capability");
 
+ITEM_TLV_OPS(flooding_params, "TLV 127 Flooding Parameters");
+
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
@@ -4157,6 +4308,7 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
 		[ISIS_TLV_OLDSTYLE_IP_REACH] = &tlv_oldstyle_ip_reach_ops,
 		[ISIS_TLV_PROTOCOLS_SUPPORTED] = &tlv_protocols_supported_ops,
+		[ISIS_TLV_FLOODING_PARAMETERS] = &tlv_flooding_params_ops,
 		[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] = &tlv_oldstyle_ip_reach_ops,
 		[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
 		[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
@@ -4878,4 +5030,21 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		memcpy(tlvs->purge_originator->sender, sender,
 		       sizeof(tlvs->purge_originator->sender));
 	}
+}
+
+void isis_tlvs_add_flooding_params(struct isis_tlvs *tlvs, uint32_t fp_rcv,
+			uint32_t min_int_lsp_trans_int,
+				   uint32_t min_lsp_trans_int)
+{
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_FLOODING_PARAMETERS,
+		&tlvs->flooding_params);
+	init_item_list(&tlvs->flooding_params);
+
+	struct isis_flooding_params *fp = XCALLOC(MTYPE_ISIS_TLV, sizeof(*fp));
+
+	fp->lsp_receive_windows = fp_rcv;
+	fp->minimum_interface_lsp_transmission_interval = min_int_lsp_trans_int;
+	fp->minimum_lsp_transmission_interval = min_lsp_trans_int;
+
+	append_item(&tlvs->flooding_params, (struct isis_item *)fp);
 }

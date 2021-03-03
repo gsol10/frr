@@ -1839,6 +1839,12 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_tlvs_add_area_addresses(tlvs, circuit->area->area_addrs);
 
+	if (circuit->circ_type == CIRCUIT_T_P2P) {
+		isis_tlvs_add_flooding_params(tlvs, circuit->fp_rcv,
+					      circuit->fp_min_int_lsp_trans_int,
+					      circuit->fp_min_lsp_trans_int);
+	}
+
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		isis_tlvs_add_lan_neighbors(
 			tlvs, circuit->u.bc.lan_neighs[level - 1]);
