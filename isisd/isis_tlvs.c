@@ -2614,19 +2614,19 @@ static int pack_item_flooding_params(struct isis_item *i, struct stream *s)
 		return 1;
 	stream_putc(s, ISIS_SUBTLV_RCV_WIN);
 	stream_putc(s, 4);
-	stream_putw(s, fp->lsp_receive_windows);
+	stream_putl(s, fp->lsp_receive_windows);
 
 	if (STREAM_WRITEABLE(s) < 6)
 		return 1;
 	stream_putc(s, ISIS_SUBTLV_INTERFACE_LSP_TRANSMISSION_INTERVAL);
 	stream_putc(s, 4);
-	stream_putw(s, fp->minimum_interface_lsp_transmission_interval);
+	stream_putl(s, fp->minimum_interface_lsp_transmission_interval);
 
 	if (STREAM_WRITEABLE(s) < 6)
 		return 1;
 	stream_putc(s, ISIS_SUBTLV_LSP_TRANSMISSION_INTERVAL);
 	stream_putc(s, 4);
-	stream_putw(s, fp->minimum_lsp_transmission_interval);
+	stream_putl(s, fp->minimum_lsp_transmission_interval);
 
 	return 0;
 }
