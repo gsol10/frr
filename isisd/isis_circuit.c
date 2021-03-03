@@ -118,6 +118,13 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 	circuit->te_metric[1] = yang_get_default_uint32(
 		"/frr-interface:lib/interface/frr-isisd:isis/metric/level-2");
 
+	circuit->fp_rcv = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/lsp_rcv_win");
+	circuit->fp_min_int_lsp_trans_int = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_int_lsp_trans_int");
+	circuit->fp_min_lsp_trans_int = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_lsp_trans_int");
+
 	for (i = 0; i < 2; i++) {
 		circuit->level_arg[i].level = i + 1;
 		circuit->level_arg[i].circuit = circuit;

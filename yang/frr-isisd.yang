@@ -591,6 +591,39 @@ module frr-isisd {
       }
     }
 
+    container flooding-parameters {
+      description
+        "Parameters related to IS-IS draft-decraene-lsr-isis-flooding-speed-05"
+      leaf lsp_rcv_win {
+        type uint32 {
+          range "0..16777215";
+        }
+        default "50";
+        description
+          "Number of un-acknowledged LSPs which can be sent back to back.";
+      }
+
+      leaf min_int_lsp_trans_int {
+        type uint32 {
+          range "0..16777215";
+        }
+        default "50";
+        description
+          "Minimum interval, in micro-seconds, between two consecutive
+   LSPs sent after the receive window has been used.";
+      }
+
+      leaf min_lsp_trans_int {
+        type uint32 {
+          range "0..16777215";
+        }
+        default "5000000";
+        description
+          "Minimum interval, in micro-seconds, before further propagating
+   another Link State PDU from the same source system.";
+      }
+    }
+
     container hello {
       description
         "Parameters related to IS-IS hello PDUs.";
