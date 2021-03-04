@@ -139,6 +139,9 @@ struct isis_circuit {
 	uint32_t fp_rcv; /* draft flooding-parameters : advertised params*/
 	uint32_t fp_min_int_lsp_trans_int;
 	uint32_t fp_min_lsp_trans_int;
+	uint32_t remote_fp_rcv; /* draft flooding-parameters : received params*/
+	uint32_t remote_fp_min_int_lsp_trans_int;
+	uint32_t remote_fp_min_lsp_trans_int;
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	uint8_t flags;
 	bool disable_threeway_adj;

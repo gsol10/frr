@@ -128,6 +128,17 @@ struct iih_info {
 
 static int process_p2p_hello(struct iih_info *iih)
 {
+	if (iih->tlvs->flooding_params.count == 1) {
+		struct isis_flooding_params *rv =
+			(struct isis_flooding_params *)
+				iih->tlvs->flooding_params.head;
+		iih->circuit->remote_fp_rcv = rv->lsp_receive_windows;
+		iih->circuit->remote_fp_min_int_lsp_trans_int =
+			rv->minimum_interface_lsp_transmission_interval;
+		iih->circuit->remote_fp_min_lsp_trans_int =
+			rv->minimum_lsp_transmission_interval;
+	}
+
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
 
 	if (tw_adj) {
