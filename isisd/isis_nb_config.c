@@ -2913,7 +2913,7 @@ int lib_interface_isis_flooding_parameters_lsp_rcv_win_modify(
 		return NB_OK;
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->fp_rcv = yang_dnode_get_uint16(args->dnode, NULL);
+	circuit->fp_rcv = yang_dnode_get_uint32(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -2932,7 +2932,7 @@ int lib_interface_isis_flooding_parameters_min_int_lsp_trans_int_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->fp_min_int_lsp_trans_int =
-		yang_dnode_get_uint16(args->dnode, NULL);
+		yang_dnode_get_uint32(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -2951,7 +2951,7 @@ int lib_interface_isis_flooding_parameters_min_lsp_trans_int_modify(
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->fp_min_lsp_trans_int =
-		yang_dnode_get_uint16(args->dnode, NULL);
+		yang_dnode_get_uint32(args->dnode, NULL);
 
 	return NB_OK;
 }
