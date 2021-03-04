@@ -265,6 +265,12 @@ int lib_interface_isis_psnp_interval_level_1_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_psnp_interval_level_2_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_isis_flooding_parameters_lsp_rcv_win_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_flooding_parameters_min_int_lsp_trans_int_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_flooding_parameters_min_lsp_trans_int_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_hello_interval_level_1_modify(
 	struct nb_cb_modify_args *args);

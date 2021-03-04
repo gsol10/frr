@@ -767,6 +767,24 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/lsp_rcv_win",
+			.cbs = {
+					.modify = lib_interface_isis_flooding_parameters_lsp_rcv_win_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_int_lsp_trans_int",
+			.cbs = {
+					.modify = lib_interface_isis_flooding_parameters_min_int_lsp_trans_int_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_lsp_trans_int",
+			.cbs = {
+					.modify = lib_interface_isis_flooding_parameters_min_lsp_trans_int_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/padding",
 			.cbs = {
 				.cli_show = cli_show_ip_isis_hello_padding,
