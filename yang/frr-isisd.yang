@@ -593,7 +593,7 @@ module frr-isisd {
 
     container flooding-parameters {
       description
-        "Parameters related to IS-IS draft-decraene-lsr-isis-flooding-speed-05"
+        "Parameters related to IS-IS draft-decraene-lsr-isis-flooding-speed-05";
       leaf lsp_rcv_win {
         type uint32 {
           range "0..16777215";
