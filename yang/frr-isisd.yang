@@ -622,6 +622,15 @@ module frr-isisd {
           "Minimum interval, in micro-seconds, before further propagating
    another Link State PDU from the same source system.";
       }
+
+      leaf anticipated_psnp {
+        type uint32 {
+          range "0..90";
+        }
+        default "15";
+        description
+          "Number of received LSP before an anticipated PSNP is sent.";
+      }
     }
 
     container hello {

@@ -785,6 +785,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/anticipated_psnp",
+			.cbs = {
+					.modify = lib_interface_isis_flooding_parameters_anticipated_psnp_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/padding",
 			.cbs = {
 				.cli_show = cli_show_ip_isis_hello_padding,

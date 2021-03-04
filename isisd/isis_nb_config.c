@@ -2957,6 +2957,25 @@ int lib_interface_isis_flooding_parameters_min_lsp_trans_int_modify(
 }
 
 /*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/anticipated_psnp
+ */
+int lib_interface_isis_flooding_parameters_anticipated_psnp_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->fp_lsp_before_antipated_psnp =
+		yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
 int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)

@@ -124,6 +124,8 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_int_lsp_trans_int");
 	circuit->fp_min_lsp_trans_int = yang_get_default_uint32(
 		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/min_lsp_trans_int");
+	circuit->fp_lsp_before_antipated_psnp = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/anticipated_psnp");
 
 	for (i = 0; i < 2; i++) {
 		circuit->level_arg[i].level = i + 1;
