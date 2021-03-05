@@ -140,6 +140,7 @@ struct isis_circuit {
 	uint32_t fp_min_int_lsp_trans_int;
 	uint32_t fp_min_lsp_trans_int;
 	uint32_t fp_lsp_before_antipated_psnp;
+	uint32_t fp_lsp_with_ssnflag[ISIS_LEVELS];
 	uint32_t remote_fp_rcv; /* draft flooding-parameters : received params*/
 	uint32_t remote_fp_min_int_lsp_trans_int;
 	uint32_t remote_fp_min_lsp_trans_int;

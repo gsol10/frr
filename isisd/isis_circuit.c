@@ -127,6 +127,14 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 	circuit->fp_lsp_before_antipated_psnp = yang_get_default_uint32(
 		"/frr-interface:lib/interface/frr-isisd:isis/flooding-parameters/anticipated_psnp");
 
+	circuit->remote_fp_rcv = 50; /* Is this configurable or operational data
+					? Both have updsides */
+	circuit->remote_fp_min_lsp_trans_int = 5000000;
+	circuit->remote_fp_min_int_lsp_trans_int = 0;
+
+	circuit->fp_lsp_with_ssnflag[0] = 0;
+	circuit->fp_lsp_with_ssnflag[1] = 0;
+
 	for (i = 0; i < 2; i++) {
 		circuit->level_arg[i].level = i + 1;
 		circuit->level_arg[i].circuit = circuit;

@@ -117,10 +117,10 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	if (!lsp)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit))
+	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit)) {
 		isis_tx_queue_del(circuit->tx_queue, lsp);
-
-	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
+		lsp_clear_ssnflag(lsp->SSNflags, circuit, lsp->level);
+	}
 
 	lsp_clear_data(lsp);
 
@@ -2109,6 +2109,37 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 		} else {
 			isis_tx_queue_del(circuit->tx_queue, lsp);
 		}
+	}
+}
+
+void lsp_set_ssnflag(uint32_t SSNflags[ISIS_MAX_CIRCUITS],
+		     struct isis_circuit *circuit, int level)
+{
+	if (!ISIS_CHECK_FLAG(SSNflags, circuit)) {
+		ISIS_SET_FLAG(SSNflags, circuit);
+		circuit->fp_lsp_with_ssnflag[level - 1]++;
+	}
+	if (circuit->fp_lsp_with_ssnflag[level - 1]
+	    == circuit->fp_lsp_before_antipated_psnp) {
+		// If we reach the thresold, we trigger a psnp sending before
+		// the expected delay
+		thread_cancel(&circuit->t_send_psnp[level - 1]);
+		/* TODO: what to do here ? Call directy or timer at 0 ? */
+		if (level == ISIS_LEVEL1) {
+			thread_add_timer(master, send_l1_psnp, circuit, 0,
+					 &circuit->t_send_psnp[level - 1]);
+		} else {
+			thread_add_timer(master, send_l2_psnp, circuit, 0,
+					 &circuit->t_send_psnp[level - 1]);
+		}
+	}
+}
+void lsp_clear_ssnflag(uint32_t SSNflags[ISIS_MAX_CIRCUITS],
+		       struct isis_circuit *circuit, int level)
+{
+	if (ISIS_CHECK_FLAG(SSNflags, circuit)) {
+		ISIS_CLEAR_FLAG(SSNflags, circuit);
+		circuit->fp_lsp_with_ssnflag[level - 1]--;
 	}
 }
 

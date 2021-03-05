@@ -126,6 +126,11 @@ int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
 		  char dynhost, struct isis *isis);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
+/* set SSNFlag for the given circuit and track number of SSN for this circuit */
+void lsp_set_ssnflag(uint32_t SSNflags[ISIS_MAX_CIRCUITS],
+		     struct isis_circuit *circuit, int level);
+void lsp_clear_ssnflag(uint32_t SSNflags[ISIS_MAX_CIRCUITS],
+		       struct isis_circuit *circuit, int level);
 
 #define LSP_ITER_CONTINUE 0
 #define LSP_ITER_STOP -1

@@ -1089,9 +1089,9 @@ dontcheckadj:
 						/* iv */
 						if (circuit->circ_type
 						    != CIRCUIT_T_BROADCAST)
-							ISIS_SET_FLAG(
+							lsp_set_ssnflag(
 								lsp->SSNflags,
-								circuit);
+								circuit, level);
 					}
 				} /* 7.3.16.4 b) 2) */
 				else if (comp == LSP_EQUAL) {
@@ -1101,13 +1101,14 @@ dontcheckadj:
 					/* ii */
 					if (circuit->circ_type
 					    != CIRCUIT_T_BROADCAST)
-						ISIS_SET_FLAG(lsp->SSNflags,
-							      circuit);
+						lsp_set_ssnflag(lsp->SSNflags,
+								circuit, level);
 				} /* 7.3.16.4 b) 3) */
 				else {
 					isis_tx_queue_add(circuit->tx_queue,
 							  lsp, TX_LSP_NORMAL);
-					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+					lsp_clear_ssnflag(lsp->SSNflags,
+							  circuit, level);
 				}
 			} else if (lsp->hdr.rem_lifetime != 0) {
 				/* our own LSP -> 7.3.16.4 c) */
@@ -1128,7 +1129,8 @@ dontcheckadj:
 				} else {
 					isis_tx_queue_add(circuit->tx_queue,
 							  lsp, TX_LSP_NORMAL);
-					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+					lsp_clear_ssnflag(lsp->SSNflags,
+							  circuit, level);
 				}
 				if (IS_DEBUG_UPDATE_PACKETS)
 					zlog_debug(
@@ -1183,11 +1185,11 @@ dontcheckadj:
 		} else if (comp == LSP_EQUAL) {
 			isis_tx_queue_del(circuit->tx_queue, lsp);
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				lsp_set_ssnflag(lsp->SSNflags, circuit, level);
 		} else {
 			isis_tx_queue_add(circuit->tx_queue, lsp,
 					  TX_LSP_NORMAL);
-			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+			lsp_clear_ssnflag(lsp->SSNflags, circuit, level);
 		}
 	} else {
 		/* 7.3.15.1 e) - This lsp originated on another system */
@@ -1230,7 +1232,7 @@ dontcheckadj:
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				lsp_set_ssnflag(lsp->SSNflags, circuit, level);
 			/* FIXME: v) */
 		}
 		/* 7.3.15.1 e) 2) LSP equal to the one in db */
@@ -1240,13 +1242,13 @@ dontcheckadj:
 				   circuit->area, level, false);
 			tlvs = NULL;
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				lsp_set_ssnflag(lsp->SSNflags, circuit, level);
 		}
 		/* 7.3.15.1 e) 3) LSP older than the one in db */
 		else {
 			isis_tx_queue_add(circuit->tx_queue, lsp,
 					  TX_LSP_NORMAL);
-			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+			lsp_clear_ssnflag(lsp->SSNflags, circuit, level);
 		}
 	}
 
@@ -1452,7 +1454,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
 			   */
 			else if (cmp == LSP_OLDER) {
-				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+				lsp_clear_ssnflag(lsp->SSNflags, circuit,
+						  level);
 				isis_tx_queue_add(circuit->tx_queue, lsp,
 						  TX_LSP_NORMAL);
 			}
@@ -1464,7 +1467,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					isis_tx_queue_add(circuit->tx_queue, lsp,
 							TX_LSP_NORMAL);
 				} else {
-					ISIS_SET_FLAG(lsp->SSNflags, circuit);
+					lsp_set_ssnflag(lsp->SSNflags, circuit,
+							level);
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
 					isis_tx_queue_del(circuit->tx_queue, lsp);
@@ -1502,7 +1506,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					   lsp);
 
 				lsp_set_all_srmflags(lsp, false);
-				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				lsp_set_ssnflag(lsp->SSNflags, circuit, level);
 				resync_needed = true;
 			}
 		}
@@ -2338,7 +2342,8 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		entry_head = (struct isis_lsp_entry *)tlvs->lsp_entries.head;
 		for (struct isis_lsp_entry *entry = entry_head; entry;
 		     entry = entry->next)
-			ISIS_CLEAR_FLAG(entry->lsp->SSNflags, circuit);
+			lsp_clear_ssnflag(lsp->SSNflags, circuit, level);
+		circuit->fp_lsp_with_ssnflag[level - 1] = 0;
 		isis_free_tlvs(tlvs);
 	}
 
