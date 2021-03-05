@@ -2342,7 +2342,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		entry_head = (struct isis_lsp_entry *)tlvs->lsp_entries.head;
 		for (struct isis_lsp_entry *entry = entry_head; entry;
 		     entry = entry->next)
-			lsp_clear_ssnflag(lsp->SSNflags, circuit, level);
+			lsp_clear_ssnflag(entry->lsp->SSNflags, circuit, level);
 		circuit->fp_lsp_with_ssnflag[level - 1] = 0;
 		isis_free_tlvs(tlvs);
 	}
