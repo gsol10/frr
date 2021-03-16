@@ -133,10 +133,10 @@ static int process_p2p_hello(struct iih_info *iih)
 			(struct isis_flooding_params *)
 				iih->tlvs->flooding_params.head;
 		iih->circuit->remote_fp_rcv = rv->lsp_receive_windows;
-		iih->circuit->remote_fp_min_int_lsp_trans_int =
-			rv->minimum_interface_lsp_transmission_interval;
-		iih->circuit->remote_fp_min_lsp_trans_int =
-			rv->minimum_lsp_transmission_interval;
+		microseconds_to_timeval(rv->minimum_interface_lsp_transmission_interval,
+		&iih->circuit->remote_fp_min_int_lsp_trans_int);
+		microseconds_to_timeval(rv->minimum_lsp_transmission_interval,
+		&iih->circuit->remote_fp_min_lsp_trans_int);
 	}
 
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;

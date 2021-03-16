@@ -164,9 +164,6 @@ static int tx_queue_send_event(struct thread *thread)
 		struct qef_item *qef =
 			queue_entry_fifo_pop(&queue->delayed_lsp);
 		struct isis_tx_queue_entry *e = qef->e;
-		struct timeval tv = {
-			.tv_sec = 0,
-			.tv_usec = queue->circuit->remote_fp_min_lsp_trans_int};
 
 		if (e->is_retry) {
 			queue->circuit->area->lsp_rxmt_count++;
@@ -180,7 +177,7 @@ static int tx_queue_send_event(struct thread *thread)
 		queue_entry_fifo_add_tail(&queue->lsp_to_retransmit,
 					  &e->fifo_entry);
 		e->retry = NULL;
-		thread_add_timer_tv(master, tx_resend, e, &tv, &e->retry);
+		thread_add_timer_tv(master, tx_resend, e, &queue->circuit->remote_fp_min_lsp_trans_int, &e->retry);
 
 		queue->send_event(
 			queue->circuit, e->lsp,
@@ -190,11 +187,8 @@ static int tx_queue_send_event(struct thread *thread)
 	// ...then schedule next send event with delay
 	queue->delayed = NULL;
 	if (queue_entry_fifo_count(&queue->delayed_lsp) != 0) {
-		struct timeval tv = {
-			.tv_sec = 0,
-			.tv_usec = queue->circuit
-					   ->remote_fp_min_int_lsp_trans_int};
-		thread_add_timer_tv(master, tx_queue_send_event, queue, &tv,
+		thread_add_timer_tv(master, tx_queue_send_event, queue, &queue->circuit
+					   ->remote_fp_min_int_lsp_trans_int,
 				    &queue->delayed);
 	}
 

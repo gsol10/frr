@@ -129,8 +129,8 @@ struct isis_circuit *isis_circuit_new(struct isis *isis)
 
 	circuit->remote_fp_rcv = 50; /* Is this configurable or operational data
 					? Both have updsides */
-	circuit->remote_fp_min_lsp_trans_int = 5000000;
-	circuit->remote_fp_min_int_lsp_trans_int = 0;
+	circuit->remote_fp_min_lsp_trans_int = (struct timeval){.tv_sec = 5, .tv_usec = 0};
+	circuit->remote_fp_min_int_lsp_trans_int = (struct timeval){.tv_sec = 0, .tv_usec = 0};
 
 	circuit->fp_lsp_with_ssnflag[0] = 0;
 	circuit->fp_lsp_with_ssnflag[1] = 0;

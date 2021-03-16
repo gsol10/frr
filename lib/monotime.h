@@ -132,6 +132,16 @@ static inline const char *frrtime_to_interval(time_t t, char *buf,
 	return buf;
 }
 
+static inline void microseconds_to_timeval(uint32_t usecs, struct timeval *tv) {
+	tv->tv_sec = 0;
+	tv->tv_usec = 0;
+	while(usecs >= 1000000) {
+		tv->tv_sec++;
+		usecs -= 1000000;
+	}
+	tv->tv_usec = usecs;
+}
+
 #ifdef __cplusplus
 }
 #endif
