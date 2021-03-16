@@ -49,8 +49,8 @@ struct isis_tx_queue {
 			   struct isis_lsp *, enum isis_tx_type);
 	struct hash *hash;
 	struct thread *delayed; // Used to store any delayed send thread
-	struct queue_entry_fifo_head *delayed_lsp;
-	struct queue_entry_fifo_head *lsp_to_retransmit;
+	struct queue_entry_fifo_head delayed_lsp;
+	struct queue_entry_fifo_head lsp_to_retransmit;
 	uint32_t unacked_lsps;
 };
 
@@ -102,8 +102,8 @@ struct isis_tx_queue *isis_tx_queue_new(
 	rv->send_event = send_event;
 
 	rv->hash = hash_create(tx_queue_hash_key, tx_queue_hash_cmp, NULL);
-	queue_entry_fifo_init(rv->delayed_lsp);
-	queue_entry_fifo_init(rv->lsp_to_retransmit);
+	queue_entry_fifo_init(&rv->delayed_lsp);
+	queue_entry_fifo_init(&rv->lsp_to_retransmit);
 	rv->unacked_lsps = 0;
 	return rv;
 }
@@ -121,13 +121,13 @@ void isis_tx_queue_free(struct isis_tx_queue *queue)
 {
 	// Empty both queues before freeing them
 	struct qef_item *item;
-	while ((item = queue_entry_fifo_pop(queue->delayed_lsp)))
+	while ((item = queue_entry_fifo_pop(&queue->delayed_lsp)))
 		;
-	while ((item = queue_entry_fifo_pop(queue->lsp_to_retransmit)))
+	while ((item = queue_entry_fifo_pop(&queue->lsp_to_retransmit)))
 		;
 
-	queue_entry_fifo_fini(queue->delayed_lsp);
-	queue_entry_fifo_fini(queue->lsp_to_retransmit);
+	queue_entry_fifo_fini(&queue->delayed_lsp);
+	queue_entry_fifo_fini(&queue->lsp_to_retransmit);
 
 	hash_clean(queue->hash, tx_queue_element_free);
 	hash_free(queue->hash);
@@ -157,11 +157,12 @@ static int tx_queue_send_event(struct thread *thread)
 
 	int32_t to_send = queue->circuit->remote_fp_rcv - queue->unacked_lsps;
 	to_send = to_send > 0 ? to_send : 1; // Always send at least one packet.
-	to_send = MIN(queue_entry_fifo_count(queue->delayed_lsp), to_send);
+	to_send = MIN(queue_entry_fifo_count(&queue->delayed_lsp), to_send);
 
 	// Here send to fill the receive windows,...
 	for (int i = 0; i < to_send; i++) {
-		struct qef_item *qef = queue_entry_fifo_pop(queue->delayed_lsp);
+		struct qef_item *qef =
+			queue_entry_fifo_pop(&queue->delayed_lsp);
 		struct isis_tx_queue_entry *e = qef->e;
 		struct timeval tv = {
 			.tv_sec = 0,
@@ -174,21 +175,21 @@ static int tx_queue_send_event(struct thread *thread)
 			e->is_retry = true;
 		}
 
+		// Every sent packet goes from L1 to L2
+		e->current_fifo = &queue->lsp_to_retransmit;
+		queue_entry_fifo_add_tail(&queue->lsp_to_retransmit,
+					  &e->fifo_entry);
+		e->retry = NULL;
+		thread_add_timer_tv(master, tx_resend, e, &tv, &e->retry);
+
 		queue->send_event(
 			queue->circuit, e->lsp,
 			e->type); /* Don't access e here anymore, send_event
-				     might have destroyed it - Really ? */
-
-		// Every sent packet goes from L1 to L2
-		e->current_fifo = queue->lsp_to_retransmit;
-		queue_entry_fifo_add_tail(queue->lsp_to_retransmit,
-					  &e->fifo_entry);
-		e->retry = NULL;
-		thread_add_timer_tv(master, tx_resend, &e, &tv, &e->retry);
+				     might have destroyed it */
 	}
 	// ...then schedule next send event with delay
 	queue->delayed = NULL;
-	if (queue_entry_fifo_count(queue->delayed_lsp) != 0) {
+	if (queue_entry_fifo_count(&queue->delayed_lsp) != 0) {
 		struct timeval tv = {
 			.tv_sec = 0,
 			.tv_usec = queue->circuit
@@ -240,15 +241,15 @@ void tx_schedule_send(struct isis_tx_queue_entry *e)
 {
 	// add to delayed_lsp (check if it was not send before)
 	// It it was in lsp_to_retransmit, put it back to delayed_lsp
-	if (e->current_fifo != e->queue->delayed_lsp) {
-		if (e->current_fifo == e->queue->lsp_to_retransmit) {
-			queue_entry_fifo_del(e->queue->lsp_to_retransmit,
+	if (e->current_fifo != &e->queue->delayed_lsp) {
+		if (e->current_fifo == &e->queue->lsp_to_retransmit) {
+			queue_entry_fifo_del(&e->queue->lsp_to_retransmit,
 					     &e->fifo_entry);
 			thread_cancel(&e->retry);
 		}
-		queue_entry_fifo_add_tail(e->queue->delayed_lsp,
+		queue_entry_fifo_add_tail(&e->queue->delayed_lsp,
 					  &e->fifo_entry);
-		e->current_fifo = e->queue->delayed_lsp;
+		e->current_fifo = &e->queue->delayed_lsp;
 	}
 	// Then schedule sending thread
 	if (e->queue->delayed == NULL)
@@ -296,9 +297,9 @@ void isis_tx_queue_clean(struct isis_tx_queue *queue)
 {
 	// First empty sending lists
 	struct qef_item *item;
-	while ((item = queue_entry_fifo_pop(queue->delayed_lsp)))
+	while ((item = queue_entry_fifo_pop(&queue->delayed_lsp)))
 		;
-	while ((item = queue_entry_fifo_pop(queue->lsp_to_retransmit)))
+	while ((item = queue_entry_fifo_pop(&queue->lsp_to_retransmit)))
 		;
 
 	queue->unacked_lsps = 0;
