@@ -277,7 +277,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 		if (queue->unacked_lsps < queue->circuit->remote_fp_rcv) {
 			thread_cancel(&queue->delayed);
 			thread_add_timer(master, tx_queue_send_event, queue, 0,
-				 &queue->delayed);
+					 &queue->delayed);
 		}
 	}
 
