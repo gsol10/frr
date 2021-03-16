@@ -177,7 +177,10 @@ static int tx_queue_send_event(struct thread *thread)
 		queue_entry_fifo_add_tail(&queue->lsp_to_retransmit,
 					  &e->fifo_entry);
 		e->retry = NULL;
-		thread_add_timer_tv(master, tx_resend, e, &queue->circuit->remote_fp_min_lsp_trans_int, &e->retry);
+		thread_add_timer_tv(
+			master, tx_resend, e,
+			&queue->circuit->remote_fp_min_lsp_trans_int,
+			&e->retry);
 
 		queue->send_event(
 			queue->circuit, e->lsp,
@@ -187,9 +190,10 @@ static int tx_queue_send_event(struct thread *thread)
 	// ...then schedule next send event with delay
 	queue->delayed = NULL;
 	if (queue_entry_fifo_count(&queue->delayed_lsp) != 0) {
-		thread_add_timer_tv(master, tx_queue_send_event, queue, &queue->circuit
-					   ->remote_fp_min_int_lsp_trans_int,
-				    &queue->delayed);
+		thread_add_timer_tv(
+			master, tx_queue_send_event, queue,
+			&queue->circuit->remote_fp_min_int_lsp_trans_int,
+			&queue->delayed);
 	}
 
 	return 0;
