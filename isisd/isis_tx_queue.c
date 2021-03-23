@@ -189,7 +189,7 @@ static int tx_queue_send_event(struct thread *thread)
 	}
 	// ...then schedule next send event with delay
 	queue->delayed = NULL;
-	if (queue_entry_fifo_count(&queue->delayed_lsp) != 0) {
+	if (queue->unacked_lsps >= queue->circuit->remote_fp_rcv) {
 		thread_add_timer_tv(
 			master, tx_queue_send_event, queue,
 			&queue->circuit->remote_fp_min_int_lsp_trans_int,
