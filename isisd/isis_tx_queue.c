@@ -260,7 +260,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 {
 	if (!queue)
 		return;
-
+	//TODO: check if lsp seqno is not null here
 	struct isis_tx_queue_entry *e = tx_queue_find(queue, lsp);
 	if (!e)
 		return;
