@@ -192,6 +192,7 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp);
 void isis_circuit_if_bind(struct isis_circuit *circuit, struct interface *ifp);
 void isis_circuit_if_unbind(struct isis_circuit *circuit,
 			    struct interface *ifp);
+void isis_circuit_update_all_srmflags(struct isis_circuit *circuit, int is_set);
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *conn);
 void isis_circuit_del_addr(struct isis_circuit *circuit,

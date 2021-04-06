@@ -607,7 +607,7 @@ module frr-isisd {
         type uint32 {
           range "0..16777215";
         }
-        default "50";
+        default "50000";
         description
           "Minimum interval, in micro-seconds, between two consecutive
    LSPs sent after the receive window has been used.";
@@ -627,7 +627,7 @@ module frr-isisd {
         type uint32 {
           range "0..90";
         }
-        default "15";
+        default "5";
         description
           "Number of received LSP before an anticipated PSNP is sent.";
       }

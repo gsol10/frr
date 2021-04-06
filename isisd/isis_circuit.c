@@ -559,8 +559,7 @@ void isis_circuit_if_unbind(struct isis_circuit *circuit, struct interface *ifp)
 	ifp->info = NULL;
 }
 
-static void isis_circuit_update_all_srmflags(struct isis_circuit *circuit,
-					     int is_set)
+void isis_circuit_update_all_srmflags(struct isis_circuit *circuit, int is_set)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
