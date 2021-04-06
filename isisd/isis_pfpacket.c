@@ -386,6 +386,8 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	iov[1].iov_len = stream_get_endp(circuit->snd_stream);
 
 	if (sendmsg(circuit->fd, &msg, 0) < 0) {
+		if (errno == ENOBUFS)
+			return ISIS_OK;
 		zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
 			  circuit->interface->name, safe_strerror(errno));
 		if (ERRNO_IO_RETRY(errno))

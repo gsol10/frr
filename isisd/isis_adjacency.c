@@ -346,6 +346,8 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				adj->last_flap = time(NULL);
 				adj->flaps++;
 
+				isis_circuit_update_all_srmflags(circuit, 1);
+
 				if (level == IS_LEVEL_1) {
 					thread_add_timer(master, send_l1_csnp,
 							 circuit, 0,
