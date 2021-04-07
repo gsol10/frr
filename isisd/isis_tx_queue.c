@@ -275,7 +275,8 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 	}
 
 	if (e->is_retry) {
-		queue->cwin = MIN(queue->circuit->remote_fp_rcv, ++queue->cwin);
+		queue->cwin++;
+		queue->cwin = MIN(queue->circuit->remote_fp_rcv, queue->cwin);
 		queue->unacked_lsps--;
 		if (queue->unacked_lsps < queue->cwin) {
 			thread_cancel(&queue->delayed);
