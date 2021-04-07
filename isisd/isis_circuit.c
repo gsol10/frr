@@ -580,7 +580,8 @@ void isis_circuit_update_all_srmflags(struct isis_circuit *circuit, int is_set)
 				isis_tx_queue_add(circuit->tx_queue, lsp,
 						  TX_LSP_NORMAL);
 			} else {
-				isis_tx_queue_del(circuit->tx_queue, lsp);
+				isis_tx_queue_del(circuit->tx_queue, lsp,
+						  false);
 			}
 		}
 	}

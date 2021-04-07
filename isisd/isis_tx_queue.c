@@ -258,7 +258,8 @@ void tx_schedule_send(struct isis_tx_queue_entry *e)
 }
 
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
-			const char *func, const char *file, int line)
+			int from_psnp, const char *func, const char *file,
+			int line)
 {
 	if (!queue)
 		return;
@@ -275,8 +276,12 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 	}
 
 	if (e->is_retry) {
-		queue->cwin++;
-		queue->cwin = MIN(queue->circuit->remote_fp_rcv, queue->cwin);
+		if (from_psnp) {
+			queue->cwin++;
+			queue->cwin =
+				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
+		}
+
 		queue->unacked_lsps--;
 		if (queue->unacked_lsps < queue->cwin) {
 			thread_cancel(&queue->delayed);

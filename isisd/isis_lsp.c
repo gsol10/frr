@@ -118,7 +118,7 @@ static void lsp_destroy(struct isis_lsp *lsp)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit)) {
-		isis_tx_queue_del(circuit->tx_queue, lsp);
+		isis_tx_queue_del(circuit->tx_queue, lsp, false);
 		lsp_clear_ssnflag(lsp->SSNflags, circuit, lsp->level);
 	}
 
@@ -2107,7 +2107,7 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 			isis_tx_queue_add(circuit->tx_queue, lsp,
 					  TX_LSP_NORMAL);
 		} else {
-			isis_tx_queue_del(circuit->tx_queue, lsp);
+			isis_tx_queue_del(circuit->tx_queue, lsp, false);
 		}
 	}
 }
@@ -2170,7 +2170,7 @@ void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 		fabricd_lsp_flood(lsp, circuit);
 
 	if (circuit)
-		isis_tx_queue_del(circuit->tx_queue, lsp);
+		isis_tx_queue_del(circuit->tx_queue, lsp, false);
 }
 
 static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
