@@ -52,6 +52,7 @@ struct isis_tx_queue {
 	struct queue_entry_fifo_head delayed_lsp;
 	struct queue_entry_fifo_head lsp_to_retransmit;
 	uint32_t unacked_lsps;
+	uint32_t cwin;
 };
 
 void tx_schedule_send(struct isis_tx_queue_entry *e);
@@ -105,6 +106,7 @@ struct isis_tx_queue *isis_tx_queue_new(
 	queue_entry_fifo_init(&rv->delayed_lsp);
 	queue_entry_fifo_init(&rv->lsp_to_retransmit);
 	rv->unacked_lsps = 0;
+	rv->cwin = 1;
 	return rv;
 }
 
@@ -155,7 +157,7 @@ static int tx_queue_send_event(struct thread *thread)
 {
 	struct isis_tx_queue *queue = THREAD_ARG(thread);
 
-	int32_t to_send = queue->circuit->remote_fp_rcv - queue->unacked_lsps;
+	int32_t to_send = queue->cwin - queue->unacked_lsps;
 	to_send = to_send > 0 ? to_send : 1; // Always send at least one packet.
 	to_send = MIN(queue_entry_fifo_count(&queue->delayed_lsp), to_send);
 
@@ -189,7 +191,7 @@ static int tx_queue_send_event(struct thread *thread)
 	}
 	// ...then schedule next send event with delay
 	queue->delayed = NULL;
-	if (queue->unacked_lsps >= queue->circuit->remote_fp_rcv) {
+	if (queue->unacked_lsps >= queue->cwin) {
 		thread_add_timer_tv(
 			master, tx_queue_send_event, queue,
 			&queue->circuit->remote_fp_min_int_lsp_trans_int,
@@ -273,8 +275,9 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 	}
 
 	if (e->is_retry) {
+		queue->cwin = MIN(queue->circuit->remote_fp_rcv, ++queue->cwin);
 		queue->unacked_lsps--;
-		if (queue->unacked_lsps < queue->circuit->remote_fp_rcv) {
+		if (queue->unacked_lsps < queue->cwin) {
 			thread_cancel(&queue->delayed);
 			thread_add_timer(master, tx_queue_send_event, queue, 0,
 					 &queue->delayed);
