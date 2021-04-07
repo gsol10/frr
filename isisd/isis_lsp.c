@@ -2117,8 +2117,8 @@ void lsp_set_ssnflag(uint32_t SSNflags[ISIS_MAX_CIRCUITS],
 {
 	if (!ISIS_CHECK_FLAG(SSNflags, circuit)) {
 		ISIS_SET_FLAG(SSNflags, circuit);
-		thread_cancel(&circuit->t_send_psnp[level - 1]);
 		if (circuit->fp_lsp_with_ssnflag[level - 1]++ == 0) {
+			thread_cancel(&circuit->t_send_psnp[level - 1]);
 			if (level == ISIS_LEVEL1) {
 				thread_add_timer_msec(
 					master, send_l1_psnp, circuit, 50,
