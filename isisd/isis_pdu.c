@@ -60,6 +60,9 @@
 #include "isisd/isis_pdu_counter.h"
 #include "isisd/isis_nb.h"
 
+static int send_single_psnp(int level, struct isis_circuit *circuit,
+			    struct isis_lsp *lsp);
+
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)
 {
@@ -1091,9 +1094,15 @@ dontcheckadj:
 						/* iv */
 						if (circuit->circ_type
 						    != CIRCUIT_T_BROADCAST)
-							lsp_set_ssnflag(
-								lsp->SSNflags,
-								circuit, level);
+							// lsp_set_ssnflag(
+							// //Replace this with
+							// direct send i think
+							// this is our case
+							//	lsp->SSNflags,
+							//	circuit, level);
+							send_single_psnp(
+								level, circuit,
+								lsp);
 					}
 				} /* 7.3.16.4 b) 2) */
 				else if (comp == LSP_EQUAL) {
@@ -2349,6 +2358,81 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		circuit->fp_lsp_with_ssnflag[level - 1] = 0;
 		isis_free_tlvs(tlvs);
 	}
+
+	return ISIS_OK;
+}
+
+static int send_single_psnp(int level, struct isis_circuit *circuit,
+			    struct isis_lsp *lsp)
+{
+	if (!circuit->snd_stream)
+		return ISIS_ERROR;
+
+	uint8_t pdu_type = (level == ISIS_LEVEL1) ? L1_PARTIAL_SEQ_NUM
+						  : L2_PARTIAL_SEQ_NUM;
+
+	isis_circuit_stream(circuit, &circuit->snd_stream);
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
+
+	size_t len_pointer = stream_get_endp(circuit->snd_stream);
+	stream_putw(circuit->snd_stream, 0); /* length is filled in later */
+	stream_put(circuit->snd_stream, circuit->isis->sysid, ISIS_SYS_ID_LEN);
+	stream_putc(circuit->snd_stream, circuit->idx);
+
+	struct isis_passwd *passwd = (level == ISIS_LEVEL1)
+					     ? &circuit->area->area_passwd
+					     : &circuit->area->domain_passwd;
+
+	struct isis_tlvs *tlvs = isis_alloc_tlvs();
+
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+		isis_tlvs_add_auth(tlvs, passwd);
+
+	size_t tlv_start = stream_get_endp(circuit->snd_stream);
+	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
+			   false)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
+	isis_free_tlvs(tlvs);
+
+	tlvs = isis_alloc_tlvs();
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+		isis_tlvs_add_auth(tlvs, passwd);
+
+	isis_tlvs_add_lsp_entry(tlvs, lsp);
+
+	stream_set_endp(circuit->snd_stream, tlv_start);
+	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
+			   false)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
+
+	if (IS_DEBUG_SNP_PACKETS) {
+		zlog_debug("ISIS-Snp (%s): Sending L%d PSNP on %s, length %zd",
+			   circuit->area->area_tag, level,
+			   circuit->interface->name,
+			   stream_get_endp(circuit->snd_stream));
+		log_multiline(LOG_DEBUG, "              ", "%s",
+			      isis_format_tlvs(tlvs));
+		if (IS_DEBUG_PACKET_DUMP)
+			zlog_dump_data(STREAM_DATA(circuit->snd_stream),
+				       stream_get_endp(circuit->snd_stream));
+	}
+
+	pdu_counter_count(circuit->area->pdu_tx_counters, pdu_type);
+	int retval = circuit->tx(circuit, level);
+	if (retval != ISIS_OK) {
+		flog_err(EC_ISIS_PACKET,
+			 "ISIS-Snp (%s): Send L%d PSNP on %s failed",
+			 circuit->area->area_tag, level,
+			 circuit->interface->name);
+		isis_free_tlvs(tlvs);
+		return retval;
+	}
+
+	isis_free_tlvs(tlvs);
 
 	return ISIS_OK;
 }
