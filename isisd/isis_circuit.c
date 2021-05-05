@@ -489,7 +489,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_P2P;
 	} else if (if_is_loopback(ifp)) {
 		circuit->circ_type = CIRCUIT_T_LOOPBACK;
-		circuit->is_passive = 1;
+		//circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)

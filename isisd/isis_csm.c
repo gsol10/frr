@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <pcap.h>
 #include <zebra.h>
 
 #include "log.h"
@@ -59,6 +60,62 @@ static const char *const csm_eventstr[] = {
 };
 
 #define EVENT2STR(E) csm_eventstr[E]
+
+static void add_lsp(struct isis_circuit *circuit) {
+	char cwd[500];
+	getcwd(cwd, sizeof(cwd));
+	zlog_debug("Curdir is %s", cwd);
+	char error_buffer[PCAP_ERRBUF_SIZE];
+	pcap_t *handle = pcap_open_offline("trace_lsp.pcap", error_buffer);
+	if (handle == NULL) {
+		zlog_debug("Can't open pcap");
+	}
+	struct pcap_pkthdr h;
+	const uint8_t *data = NULL;
+	data = pcap_next(handle, &h);
+
+	while (data != NULL) {
+		stream_reset(circuit->rcv_stream);
+		stream_write(circuit->rcv_stream, data + 14 + 3,
+			     h.len - 14 - 3);
+		char dst[8];
+		stream_get(dst, circuit->rcv_stream, 8); // Remove ISIS header
+
+		struct isis_lsp_hdr hdr = {}; // Get PDU Header
+
+		hdr.pdu_len = stream_getw(circuit->rcv_stream);
+		hdr.rem_lifetime = stream_getw(circuit->rcv_stream);
+		stream_get(hdr.lsp_id, circuit->rcv_stream, sizeof(hdr.lsp_id));
+		hdr.seqno = stream_getl(circuit->rcv_stream);
+		hdr.checksum = stream_getw(circuit->rcv_stream);
+		hdr.lsp_bits = stream_getc(circuit->rcv_stream);
+
+		struct isis_tlvs *tlvs = NULL;
+		const char *error_log;
+		if (isis_unpack_tlvs(STREAM_READABLE(circuit->rcv_stream),
+				     circuit->rcv_stream, &tlvs, &error_log)) {
+			zlog_debug("Error unpacking TLVs %s", error_log);
+		}
+
+		struct isis_lsp *lsp0 = NULL;
+		if (LSP_FRAGMENT(hdr.lsp_id) != 0) {
+			uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+			memcpy(lspid, hdr.lsp_id, ISIS_SYS_ID_LEN + 1);
+			lsp0 = lsp_search(&circuit->area->lspdb[2 - 1], lspid);
+			if (lsp0 == NULL) {
+				data = pcap_next(handle, &h);
+				continue;
+			}
+		}
+
+		struct isis_lsp *lsp =
+			lsp_new_from_recv(&hdr, tlvs, circuit->rcv_stream, lsp0,
+					  circuit->area, 2);
+		tlvs = NULL;
+		lsp_insert(&circuit->area->lspdb[2 - 1], lsp);
+		data = pcap_next(handle, &h);
+	}
+}
 
 struct isis_circuit *
 isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
@@ -154,6 +211,11 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 					circuit->interface->name);
 				break;
 			}
+			if (!strcmp(( (struct interface *)arg)->name, "lo")) {
+				zlog_debug("Interface lo -- adding LSPs");
+				add_lsp(circuit);
+			}
+
 			circuit->state = C_STATE_UP;
 			isis_event_circuit_state_change(circuit, circuit->area,
 							1);

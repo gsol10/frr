@@ -211,8 +211,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_p2p;
 			circuit->rx = isis_recv_pdu_p2p;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
-			retval = ISIS_WARNING;
+			//zlog_warn("isis_sock_init(): unknown circuit type");
+			//retval = ISIS_WARNING;
 			break;
 		}
 	}
