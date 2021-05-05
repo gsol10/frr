@@ -115,7 +115,7 @@ ISIS_SOURCES = \
 	isisd/isis_pfpacket.c \
 	# end
 
-ISIS_LDADD_COMMON = lib/libfrr.la $(LIBCAP)
+ISIS_LDADD_COMMON = lib/libfrr.la $(LIBCAP) -lpcap
 
 # Building isisd
 
