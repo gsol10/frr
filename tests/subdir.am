@@ -155,7 +155,7 @@ TESTS_CFLAGS = \
 
 ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
-ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
+ISISD_TEST_LDADD = isisd/libisis.a -lpcap $(ALL_TESTS_LDADD)
 OSPFD_TEST_LDADD = ospfd/libfrrospf.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
 ZEBRA_TEST_LDADD = zebra/label_manager.o $(ALL_TESTS_LDADD)
