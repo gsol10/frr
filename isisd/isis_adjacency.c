@@ -346,9 +346,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				adj->last_flap = time(NULL);
 				adj->flaps++;
 
-				isis_circuit_update_all_srmflags(circuit, 1);
-
-				/* if (level == IS_LEVEL_1) {
+				if (level == IS_LEVEL_1) {
 					thread_add_timer(master, send_l1_csnp,
 							 circuit, 0,
 							 &circuit->t_send_csnp[0]);
@@ -356,7 +354,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 					thread_add_timer(master, send_l2_csnp,
 							 circuit, 0,
 							 &circuit->t_send_csnp[1]);
-				} */
+				}
 			} else if (old_state == ISIS_ADJ_UP) {
 				if (adj->circuit->u.p2p.neighbor == adj)
 					adj->circuit->u.p2p.neighbor = NULL;
