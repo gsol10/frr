@@ -45,12 +45,13 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			enum isis_tx_type type, const char *func,
 			const char *file, int line);
 
-#define isis_tx_queue_del(queue, lsp, from_psnp)                               \
-	_isis_tx_queue_del((queue), (lsp), (from_psnp), __func__, __FILE__,    \
-			   __LINE__)
+#define isis_tx_queue_del(queue, lsp)                                          \
+	_isis_tx_queue_del((queue), (lsp), __func__, __FILE__, __LINE__)
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
-			int from_psnp, const char *func, const char *file,
-			int line);
+			const char *func, const char *file, int line);
+
+void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
+		      struct isis_tx_queue *queue);
 
 unsigned long isis_tx_queue_len(struct isis_tx_queue *queue);
 

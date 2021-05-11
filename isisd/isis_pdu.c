@@ -1088,8 +1088,7 @@ dontcheckadj:
 					 * through incoming circuit as usual */
 					if (!lsp_confusion) {
 						isis_tx_queue_del(
-							circuit->tx_queue, lsp,
-							false);
+							circuit->tx_queue, lsp);
 
 						/* iv */
 						if (circuit->circ_type
@@ -1108,7 +1107,7 @@ dontcheckadj:
 				else if (comp == LSP_EQUAL) {
 					/* i */
 					isis_tx_queue_del(circuit->tx_queue,
-							  lsp, false);
+							  lsp);
 					/* ii */
 					if (circuit->circ_type
 					    != CIRCUIT_T_BROADCAST)
@@ -1194,7 +1193,7 @@ dontcheckadj:
 			}
 			lsp_flood(lsp, NULL);
 		} else if (comp == LSP_EQUAL) {
-			isis_tx_queue_del(circuit->tx_queue, lsp, false);
+			isis_tx_queue_del(circuit->tx_queue, lsp);
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 				lsp_set_ssnflag(lsp->SSNflags, circuit, level);
 		} else {
@@ -1248,7 +1247,7 @@ dontcheckadj:
 		}
 		/* 7.3.15.1 e) 2) LSP equal to the one in db */
 		else if (comp == LSP_EQUAL) {
-			isis_tx_queue_del(circuit->tx_queue, lsp, false);
+			isis_tx_queue_del(circuit->tx_queue, lsp);
 			lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
 				   circuit->area, level, false);
 			tlvs = NULL;
@@ -1444,6 +1443,10 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	bool resync_needed = false;
 
+	struct isis_lsp **measurement_lsp =
+		malloc(90 * sizeof(struct isis_lsp *));
+	uint32_t measurement_count = 0;
+
 	/* 7.3.15.2 b) Actions on LSP_ENTRIES reported */
 	for (struct isis_lsp_entry *entry = entry_head; entry;
 	     entry = entry->next) {
@@ -1460,7 +1463,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			if (cmp == LSP_EQUAL) {
 				/* if (circuit->circ_type !=
 				 * CIRCUIT_T_BROADCAST) */
-				isis_tx_queue_del(circuit->tx_queue, lsp, true);
+				measurement_lsp[measurement_count++] = lsp;
 			}
 			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
 			   */
@@ -1483,7 +1486,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
 					isis_tx_queue_del(circuit->tx_queue,
-							  lsp, false);
+							  lsp);
 					resync_needed = true;
 				}
 			}
@@ -1523,6 +1526,12 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			}
 		}
 	}
+	isis_tx_measures(measurement_lsp, measurement_count, circuit->tx_queue);
+	for (uint32_t i = 0; i < measurement_count; i++) {
+		struct isis_lsp *lsp = measurement_lsp[i];
+		isis_tx_queue_del(circuit->tx_queue, lsp);
+	}
+	free(measurement_lsp);
 
 	/* 7.3.15.2 c) on CSNP set SRM for all in range which were not reported
 	 */
@@ -2579,6 +2588,6 @@ out:
 		 * to clear
 		 * the fag.
 		 */
-		isis_tx_queue_del(circuit->tx_queue, lsp, false);
+		isis_tx_queue_del(circuit->tx_queue, lsp);
 	}
 }

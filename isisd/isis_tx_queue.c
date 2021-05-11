@@ -53,6 +53,7 @@ struct isis_tx_queue {
 	struct queue_entry_fifo_head lsp_to_retransmit;
 	uint32_t unacked_lsps;
 	uint32_t cwin;
+	int slow_start;
 };
 
 void tx_schedule_send(struct isis_tx_queue_entry *e);
@@ -107,6 +108,7 @@ struct isis_tx_queue *isis_tx_queue_new(
 	queue_entry_fifo_init(&rv->lsp_to_retransmit);
 	rv->unacked_lsps = 0;
 	rv->cwin = 1;
+	rv->slow_start = 1;
 	return rv;
 }
 
@@ -258,8 +260,7 @@ void tx_schedule_send(struct isis_tx_queue_entry *e)
 }
 
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
-			int from_psnp, const char *func, const char *file,
-			int line)
+			const char *func, const char *file, int line)
 {
 	if (!queue)
 		return;
@@ -276,12 +277,6 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 	}
 
 	if (e->is_retry) {
-		if (from_psnp) {
-			queue->cwin++;
-			queue->cwin =
-				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
-		}
-
 		queue->unacked_lsps--;
 		if (queue->unacked_lsps < queue->cwin) {
 			thread_cancel(&queue->delayed);
@@ -295,6 +290,27 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 
 	hash_release(queue->hash, e);
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
+}
+
+void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
+		      struct isis_tx_queue *queue)
+{
+	if (!queue)
+		return;
+	for (uint32_t i = 0; i < count; i++) {
+		struct isis_lsp *lsp = measurements[i];
+
+		// We store every sending info in the queue entry
+		struct isis_tx_queue_entry *e = tx_queue_find(queue, lsp);
+		if (!e)
+			continue;
+
+		if (queue->slow_start) {
+			queue->cwin++;
+			queue->cwin =
+				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
+		}
+	}
 }
 
 unsigned long isis_tx_queue_len(struct isis_tx_queue *queue)
