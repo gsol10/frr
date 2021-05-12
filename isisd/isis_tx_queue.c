@@ -54,6 +54,11 @@ struct isis_tx_queue {
 	uint32_t unacked_lsps;
 	uint32_t cwin;
 	int slow_start;
+
+	struct thread *update;
+	double rtt;
+	uint delivered;
+	double bw;
 };
 
 void tx_schedule_send(struct isis_tx_queue_entry *e);
@@ -66,6 +71,8 @@ struct isis_tx_queue_entry {
 	struct isis_tx_queue *queue;
 	struct queue_entry_fifo_head *current_fifo;
 	struct qef_item fifo_entry;
+	struct timeval sendtime;
+	uint delivered; //Number of LSP acked at sending time
 };
 
 static unsigned tx_queue_hash_key(const void *p)
@@ -109,6 +116,10 @@ struct isis_tx_queue *isis_tx_queue_new(
 	rv->unacked_lsps = 0;
 	rv->cwin = 1;
 	rv->slow_start = 1;
+
+	rv->rtt = -1;
+	rv->delivered = 0;
+	rv->bw = 0;
 	return rv;
 }
 
@@ -172,6 +183,9 @@ static int tx_queue_send_event(struct thread *thread)
 		if (e->is_retry) {
 			queue->circuit->area->lsp_rxmt_count++;
 		} else {
+			struct timespec ts;
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			TIMESPEC_TO_TIMEVAL(&e->sendtime, &ts);
 			queue->unacked_lsps++;
 			e->is_retry = true;
 		}
@@ -292,12 +306,48 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
 }
 
+static inline double tv_to_sec(struct timeval *tv) {
+	return (double) tv->tv_sec + (double) tv->tv_usec / 1000000;
+}
+
+static double prev_bw = 0;
+
+static int isis_tx_update(struct thread *thread)
+{
+	struct isis_tx_queue *queue = THREAD_ARG(thread);
+
+	if (queue->bw < 1.25 * prev_bw) { // We are in the startup phase, so it
+					  // should grow, if not, it means we found a bottleneck
+		zlog_debug(
+			"End of startup phase, cwin is %d, RTT is %e, bw is %e",
+			queue->cwin, queue->rtt, queue->bw);
+		queue->slow_start = false;
+		return 0; // Don't reschedule update
+	}
+
+	prev_bw = queue->bw;
+
+	struct timeval tv_rtt;
+	microseconds_to_timeval((uint32_t) (queue->rtt * 1000000LL), &tv_rtt);
+	thread_add_timer_tv(master, isis_tx_update, queue, &tv_rtt, &queue->update);
+	return 0;
+}
+
 void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 		      struct isis_tx_queue *queue)
 {
 	if (!queue)
 		return;
+	struct timespec ts;
+	struct timeval tv;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	TIMESPEC_TO_TIMEVAL(&tv, &ts);
+	double min_rtt = -1;
+	double max_bw = 0; // LSP/s for now
+	
+	queue->delivered += count;
 	for (uint32_t i = 0; i < count; i++) {
+		struct timeval rtt;
 		struct isis_lsp *lsp = measurements[i];
 
 		// We store every sending info in the queue entry
@@ -305,12 +355,35 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 		if (!e)
 			continue;
 
+		timersub(&e->sendtime, &tv, &rtt);
+
+		//BW estimate
+		double bw = (double) (queue->delivered - e->delivered) / tv_to_sec(&rtt);
+
+		max_bw = MAX(max_bw, bw);
+
+		if (min_rtt < 0) {
+			min_rtt = tv_to_sec(&rtt);
+		} else {
+			min_rtt = MIN(min_rtt, tv_to_sec(&rtt));
+		}
+
 		if (queue->slow_start) {
 			queue->cwin++;
 			queue->cwin =
 				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
 		}
 	}
+	if (min_rtt > 0) {
+		if (queue->rtt < 0) {
+			thread_add_timer(master, isis_tx_update, queue, 0,
+					 &queue->update);
+			queue->rtt = min_rtt;
+		} else {
+			queue->rtt = MIN(queue->rtt, min_rtt);
+		}
+	}
+	queue->bw = MAX(queue->bw, max_bw);
 }
 
 unsigned long isis_tx_queue_len(struct isis_tx_queue *queue)
