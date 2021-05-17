@@ -355,7 +355,7 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 		if (!e)
 			continue;
 
-		timersub(&e->sendtime, &tv, &rtt);
+		timersub(&tv, &e->sendtime, &rtt);
 
 		//BW estimate
 		double bw = (double) (queue->delivered - e->delivered) / tv_to_sec(&rtt);
