@@ -59,6 +59,8 @@ struct isis_tx_queue {
 	double rtt;
 	uint delivered;
 	double bw;
+	double prev_bw;
+	int repeat_stall;
 };
 
 void tx_schedule_send(struct isis_tx_queue_entry *e);
@@ -120,6 +122,8 @@ struct isis_tx_queue *isis_tx_queue_new(
 	rv->rtt = -1;
 	rv->delivered = 0;
 	rv->bw = 0;
+	rv->prev_bw = 0;
+	rv->repeat_stall = 0;
 	return rv;
 }
 
@@ -310,22 +314,26 @@ static inline double tv_to_sec(struct timeval *tv) {
 	return (double) tv->tv_sec + (double) tv->tv_usec / 1000000;
 }
 
-static double prev_bw = 0;
-
 static int isis_tx_update(struct thread *thread)
 {
 	struct isis_tx_queue *queue = THREAD_ARG(thread);
 
-	if (queue->bw < 1.25 * prev_bw) { // We are in the startup phase, so it
+	if (queue->bw < 1.25 * queue->prev_bw) { // We are in the startup phase, so it
 					  // should grow, if not, it means we found a bottleneck
+		queue->repeat_stall++;
+//		return 0; // Don't reschedule update
+	} else {
+		//We increase, so we are still in growing phase
+		queue->repeat_stall = 0;
+	}
+	if (queue->repeat_stall > 2) {
 		zlog_debug(
 			"End of startup phase, cwin is %d, RTT is %e, bw is %e",
 			queue->cwin, queue->rtt, queue->bw);
-		queue->slow_start = false;
-		return 0; // Don't reschedule update
+			queue->slow_start = false;
+		return 0; //Don't reschedule update
 	}
-
-	prev_bw = queue->bw;
+	queue->prev_bw = queue->bw;
 
 	struct timeval tv_rtt;
 	microseconds_to_timeval((uint32_t) (queue->rtt * 1000000LL), &tv_rtt);
