@@ -53,6 +53,7 @@ struct isis_tx_queue {
 	struct queue_entry_fifo_head lsp_to_retransmit;
 	uint32_t unacked_lsps;
 	uint32_t cwin;
+	uint32_t cwin_frac;
 	int slow_start;
 
 	struct thread *update;
@@ -117,6 +118,7 @@ struct isis_tx_queue *isis_tx_queue_new(
 	queue_entry_fifo_init(&rv->lsp_to_retransmit);
 	rv->unacked_lsps = 0;
 	rv->cwin = 1;
+	rv->cwin_frac = 0;
 	rv->slow_start = 1;
 
 	rv->rtt = -1;
@@ -248,13 +250,12 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 		struct isis_tx_queue_entry *inserted;
 		inserted = hash_get(queue->hash, e, hash_alloc_intern);
 		assert(inserted == e);
+		e->is_retry = false;
 	}
 	e->fifo_entry.e = e;
 	e->type = type;
 
 	tx_schedule_send(e);
-
-	e->is_retry = false;
 }
 
 void tx_schedule_send(struct isis_tx_queue_entry *e)
@@ -380,6 +381,14 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 			queue->cwin++;
 			queue->cwin =
 				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
+		} else {
+			queue->cwin_frac++;
+			if (queue->cwin_frac >= queue->cwin) {
+				queue->cwin_frac = 0;
+				queue->cwin++;
+				queue->cwin = MIN(queue->circuit->remote_fp_rcv,
+						  queue->cwin);
+			}
 		}
 	}
 	if (min_rtt > 0) {
