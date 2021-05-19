@@ -195,6 +195,7 @@ static int tx_queue_send_event(struct thread *thread)
 			struct timespec ts;
 			clock_gettime(CLOCK_MONOTONIC, &ts);
 			TIMESPEC_TO_TIMEVAL(&e->sendtime, &ts);
+			e->delivered = e->queue->delivered;
 		}
 
 		if (!e->is_inflight) {
