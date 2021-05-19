@@ -189,16 +189,18 @@ static int tx_queue_send_event(struct thread *thread)
 			queue_entry_fifo_pop(&queue->delayed_lsp);
 		struct isis_tx_queue_entry *e = qef->e;
 
-		if (e->is_inflight) {
+		if (e->nb_trans >= 1) {
 			queue->circuit->area->lsp_rxmt_count++;
 		} else {
 			struct timespec ts;
 			clock_gettime(CLOCK_MONOTONIC, &ts);
 			TIMESPEC_TO_TIMEVAL(&e->sendtime, &ts);
+		}
+
+		if (!e->is_inflight) {
 			queue->unacked_lsps++;
 			e->is_inflight = true;
 		}
-
 		// Every sent packet goes from L1 to L2
 		e->current_fifo = &queue->lsp_to_retransmit;
 		queue_entry_fifo_add_tail(&queue->lsp_to_retransmit,
