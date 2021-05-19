@@ -69,7 +69,8 @@ void tx_schedule_send(struct isis_tx_queue_entry *e);
 struct isis_tx_queue_entry {
 	struct isis_lsp *lsp;
 	enum isis_tx_type type;
-	bool is_retry;
+	bool is_inflight;
+	int nb_trans;
 	struct thread *retry;
 	struct isis_tx_queue *queue;
 	struct queue_entry_fifo_head *current_fifo;
@@ -168,6 +169,8 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 static int tx_resend(struct thread *thread)
 {
 	struct isis_tx_queue_entry *e = THREAD_ARG(thread);
+	e->is_inflight = false;
+	e->queue->unacked_lsps--;
 	tx_schedule_send(e);
 	return 0;
 }
@@ -186,14 +189,14 @@ static int tx_queue_send_event(struct thread *thread)
 			queue_entry_fifo_pop(&queue->delayed_lsp);
 		struct isis_tx_queue_entry *e = qef->e;
 
-		if (e->is_retry) {
+		if (e->is_inflight) {
 			queue->circuit->area->lsp_rxmt_count++;
 		} else {
 			struct timespec ts;
 			clock_gettime(CLOCK_MONOTONIC, &ts);
 			TIMESPEC_TO_TIMEVAL(&e->sendtime, &ts);
 			queue->unacked_lsps++;
-			e->is_retry = true;
+			e->is_inflight = true;
 		}
 
 		// Every sent packet goes from L1 to L2
@@ -205,6 +208,7 @@ static int tx_queue_send_event(struct thread *thread)
 			master, tx_resend, e,
 			&queue->circuit->remote_fp_min_lsp_trans_int,
 			&e->retry);
+		e->nb_trans++;
 
 		queue->send_event(
 			queue->circuit, e->lsp,
@@ -250,7 +254,8 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 		struct isis_tx_queue_entry *inserted;
 		inserted = hash_get(queue->hash, e, hash_alloc_intern);
 		assert(inserted == e);
-		e->is_retry = false;
+		e->is_inflight = false;
+		e->nb_trans = 0;
 	}
 	e->fifo_entry.e = e;
 	e->type = type;
@@ -295,8 +300,9 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
-	if (e->is_retry) {
+	if (e->is_inflight) {
 		queue->unacked_lsps--;
+		e->is_inflight = false;
 		if (queue->unacked_lsps < queue->cwin) {
 			thread_cancel(&queue->delayed);
 			thread_add_timer(master, tx_queue_send_event, queue, 0,
@@ -361,7 +367,7 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 
 		// We store every sending info in the queue entry
 		struct isis_tx_queue_entry *e = tx_queue_find(queue, lsp);
-		if (!e)
+		if (!e || e->nb_trans != 1)
 			continue;
 
 		timersub(&tv, &e->sendtime, &rtt);
