@@ -363,7 +363,6 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 	double min_rtt = -1;
 	double max_bw = 0; // LSP/s for now
 	
-	queue->delivered += count;
 	for (uint32_t i = 0; i < count; i++) {
 		struct timeval rtt;
 		struct isis_lsp *lsp = measurements[i];
@@ -372,6 +371,8 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 		struct isis_tx_queue_entry *e = tx_queue_find(queue, lsp);
 		if (!e || e->nb_trans != 1)
 			continue;
+
+		queue->delivered++;
 
 		timersub(&tv, &e->sendtime, &rtt);
 
