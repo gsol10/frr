@@ -340,7 +340,7 @@ static int isis_tx_update(struct thread *thread)
 		zlog_debug(
 			"End of startup phase, cwin is %d, RTT is %e, bw is %e",
 			queue->cwin, queue->rtt, queue->bw);
-			queue->slow_start = false;
+		queue->slow_start = false;
 		return 0; //Don't reschedule update
 	}
 	queue->prev_bw = queue->bw;
