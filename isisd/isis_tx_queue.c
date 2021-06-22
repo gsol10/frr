@@ -43,19 +43,35 @@ struct qef_item {
 
 DECLARE_LIST(queue_entry_fifo, struct qef_item, qef_item)
 
+PREDECL_DLIST(psnp_to_fifo)
+struct ptf_item {
+	struct psnp_to_fifo_item ptf_item;
+	struct isis_tx_queue_entry *e; // Back pointer
+};
+
+DECLARE_DLIST(psnp_to_fifo, struct ptf_item, ptf_item)
+
+typedef enum {
+	CC_STARTUP,
+	CC_CA,
+} tx_congestion_state;
+
 struct isis_tx_queue {
 	struct isis_circuit *circuit;
 	void (*send_event)(struct isis_circuit *circuit,
 			   struct isis_lsp *, enum isis_tx_type);
 	struct hash *hash;
 	struct thread *delayed; // Used to store any delayed send thread
+	struct psnp_to_fifo_head exp[2];
+	uint exp_index;
 	struct queue_entry_fifo_head delayed_lsp;
 	struct queue_entry_fifo_head lsp_to_retransmit;
 	uint32_t unacked_lsps;
 	uint32_t cwin;
 	uint32_t cwin_frac;
-	int slow_start;
+	tx_congestion_state state;
 
+	struct thread *ca_check;
 	struct thread *update;
 	double rtt;
 	uint delivered;
@@ -75,6 +91,8 @@ struct isis_tx_queue_entry {
 	struct isis_tx_queue *queue;
 	struct queue_entry_fifo_head *current_fifo;
 	struct qef_item fifo_entry;
+	int8_t ca_index;
+	struct ptf_item ca_entry;
 	struct timeval sendtime;
 	uint delivered; //Number of LSP acked at sending time
 };
@@ -120,7 +138,7 @@ struct isis_tx_queue *isis_tx_queue_new(
 	rv->unacked_lsps = 0;
 	rv->cwin = 1;
 	rv->cwin_frac = 0;
-	rv->slow_start = 1;
+	rv->state = CC_STARTUP;
 
 	rv->rtt = -1;
 	rv->delivered = 0;
@@ -175,6 +193,45 @@ static int tx_resend(struct thread *thread)
 	return 0;
 }
 
+/*
+We add LSPs in in exp[exp_index]
+So the LSPs added at previous RTT are in exp[1 - exp_index]
+*/
+static int tx_ca(struct thread *thread) 
+{
+	struct isis_tx_queue *queue = THREAD_ARG(thread);
+
+	struct psnp_to_fifo_head *h = &queue->exp[1 - queue->exp_index];
+
+	if (psnp_to_fifo_count(h)) {
+		//There is a delayed/lost ack !
+
+		queue->cwin = MAX(queue->cwin/2, 1); // Also empty queue ?
+		// Here, need to empty index and list item inside the e struct
+		// so that it does not get freed afterwise
+		struct ptf_item *item;
+		while ((item = psnp_to_fifo_pop(h)))
+			item->e->ca_index = -1;
+	} else {
+		queue->exp_index = 1 - queue->exp_index;
+	}
+
+	thread_add_timer_msec(master, tx_ca, queue, queue->rtt,
+			      &queue->ca_check);
+	return 0;
+}
+
+static void tx_start_ca(struct isis_tx_queue *queue) {
+	if (queue->state == CC_STARTUP) {
+		queue->state = CC_CA;
+		queue->exp_index = 0;
+
+		psnp_to_fifo_init(&queue->exp[0]);
+		psnp_to_fifo_init(&queue->exp[1]);
+	}
+	thread_add_timer_msec(master, tx_ca, queue, 0, &queue->ca_check);
+}
+
 static int tx_queue_send_event(struct thread *thread)
 {
 	struct isis_tx_queue *queue = THREAD_ARG(thread);
@@ -212,6 +269,12 @@ static int tx_queue_send_event(struct thread *thread)
 			&queue->circuit->remote_fp_min_lsp_trans_int,
 			&e->retry);
 		e->nb_trans++;
+
+		if (e->ca_index == -1) { //Else should not happend
+			psnp_to_fifo_add_tail(&queue->exp[queue->exp_index],
+					      &e->ca_entry);
+			e->ca_index = queue->exp_index;
+		}
 
 		queue->send_event(
 			queue->circuit, e->lsp,
@@ -303,6 +366,10 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
+	if (e->ca_index != -1) {
+		psnp_to_fifo_del(&e->queue->exp[e->ca_index], &e->ca_entry);
+	}
+
 	if (e->is_inflight) {
 		queue->unacked_lsps--;
 		e->is_inflight = false;
@@ -340,7 +407,7 @@ static int isis_tx_update(struct thread *thread)
 		zlog_debug(
 			"End of startup phase, cwin is %d, RTT is %e, bw is %e",
 			queue->cwin, queue->rtt, queue->bw);
-		queue->slow_start = false;
+		tx_start_ca(queue);
 		return 0; //Don't reschedule update
 	}
 	queue->prev_bw = queue->bw;
@@ -387,7 +454,7 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 			min_rtt = MIN(min_rtt, tv_to_sec(&rtt));
 		}
 
-		if (queue->slow_start) {
+		if (queue->state == CC_STARTUP) {
 			queue->cwin++;
 			queue->cwin =
 				MIN(queue->circuit->remote_fp_rcv, queue->cwin);
