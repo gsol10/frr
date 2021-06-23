@@ -199,16 +199,16 @@ static int tx_resend(struct thread *thread)
 We add LSPs in in exp[exp_index]
 So the LSPs added at previous RTT are in exp[1 - exp_index]
 */
-static int tx_ca(struct thread *thread) 
+static int tx_ca(struct thread *thread)
 {
 	struct isis_tx_queue *queue = THREAD_ARG(thread);
 
 	struct psnp_to_fifo_head *h = &queue->exp[1 - queue->exp_index];
 
 	if (psnp_to_fifo_count(h)) {
-		//There is a delayed/lost ack !
+		// There is a delayed/lost ack !
 
-		queue->cwin = MAX(queue->cwin/2, 1); // Also empty queue ?
+		queue->cwin = MAX(queue->cwin / 2, 1); // Also empty queue ?
 		// Here, need to empty index and list item inside the e struct
 		// so that it does not get freed afterwise
 		struct ptf_item *item;
@@ -224,7 +224,8 @@ static int tx_ca(struct thread *thread)
 	return 0;
 }
 
-static void tx_start_ca(struct isis_tx_queue *queue) {
+static void tx_start_ca(struct isis_tx_queue *queue)
+{
 	if (queue->state == CC_STARTUP) {
 		queue->state = CC_CA;
 		queue->exp_index = 0;
@@ -273,7 +274,7 @@ static int tx_queue_send_event(struct thread *thread)
 			&e->retry);
 		e->nb_trans++;
 
-		if (e->ca_index == -1) { //Else should not happend
+		if (e->ca_index == -1) { // Else should not happend
 			psnp_to_fifo_add_tail(&queue->exp[queue->exp_index],
 					      &e->ca_entry);
 			e->ca_index = queue->exp_index;
