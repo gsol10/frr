@@ -480,8 +480,10 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 		} else {
 			queue->rtt = MIN(queue->rtt, min_rtt);
 			double alpha = 1 / 8, beta = 1 / 4;
-			queue->rtt_var = (1 - beta) * queue->rtt_var
-					 + beta * abs(queue->srtt - min_rtt);
+			double abs_diff = queue->srtt - min_rtt;
+			abs_diff = abs_diff > 0 ? abs_diff : -abs_diff;
+			queue->rtt_var =
+				(1 - beta) * queue->rtt_var + beta * abs_diff;
 			queue->srtt =
 				(1 - alpha) * queue->srtt + alpha * min_rtt;
 			queue->bw = MAX(queue->bw, max_bw);
