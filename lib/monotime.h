@@ -132,6 +132,11 @@ static inline const char *frrtime_to_interval(time_t t, char *buf,
 	return buf;
 }
 
+inline double timespec_to_milliseconds(struct timespec *ts)
+{
+	return (double)ts->tv_sec / 1000 + (double)ts->tv_nsec / 1000000;
+}
+
 static inline void microseconds_to_timeval(uint32_t usecs, struct timeval *tv)
 {
 	tv->tv_sec = 0;
