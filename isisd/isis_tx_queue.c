@@ -209,6 +209,7 @@ static int tx_ca(struct thread *thread)
 		// There is a delayed/lost ack !
 
 		queue->cwin = MAX(queue->cwin / 2, 1); // Also empty queue ?
+		queue->cwin_frac = 0;
 		// Here, need to empty index and list item inside the e struct
 		// so that it does not get freed afterwise
 		struct ptf_item *item;
@@ -274,7 +275,7 @@ static int tx_queue_send_event(struct thread *thread)
 			&e->retry);
 		e->nb_trans++;
 
-		if (e->ca_index == -1) { // Else should not happend
+		if (queue->state == CC_CA && e->ca_index == -1) { // Else should not happend
 			psnp_to_fifo_add_tail(&queue->exp[queue->exp_index],
 					      &e->ca_entry);
 			e->ca_index = queue->exp_index;
@@ -326,6 +327,8 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 		assert(inserted == e);
 		e->is_inflight = false;
 		e->nb_trans = 0;
+		e->ca_index = -1;
+		e->ca_entry.e = e;
 	}
 	e->fifo_entry.e = e;
 	e->type = type;
@@ -479,7 +482,7 @@ void isis_tx_measures(struct isis_lsp **measurements, uint32_t count,
 			queue->rtt_var = min_rtt / 2;
 		} else {
 			queue->rtt = MIN(queue->rtt, min_rtt);
-			double alpha = 1 / 8, beta = 1 / 4;
+			double alpha = 1.0 / 8, beta = 1.0 / 4;
 			double abs_diff = queue->srtt - min_rtt;
 			abs_diff = abs_diff > 0 ? abs_diff : -abs_diff;
 			queue->rtt_var =
